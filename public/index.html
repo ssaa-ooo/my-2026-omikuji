@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>二〇二六年・本格八百万おみくじ</title>
+    <style> /* ...（前回提供したCSSを挿入）... */ </style>
+</head>
+<body>
+<div class="container">
+    <h1>二〇二六年 御神籤</h1>
+
+    <div id="intro-screen">
+        <p>二〇二六年の運勢を占うには<br>お賽銭（100円）が必要です。</p>
+        <button class="primary-btn" onclick="startCheckout()">PayPayでお賽銭を入れる</button>
+    </div>
+
+    <div id="selection-screen" class="hidden">
+        <p>直感で一本お選びください</p>
+        <div class="selection-grid" id="stick-container"></div>
+    </div>
+
+    <div id="loading-screen" class="hidden">
+        <div class="loading-text">鑑定中...</div>
+        <p>運命を読み解いています</p>
+    </div>
+
+    <div id="result-screen" class="hidden">
+        <div id="result-scroll-box">
+            <div class="rank" id="rank-display"></div>
+            <div class="year-summary"><span id="summary-text"></span></div>
+            <div class="details-grid" id="details-display"></div>
+        </div>
+        <button id="back-button" class="secondary-btn" onclick="location.href='/'">最初に戻る</button>
+    </div>
+</div>
+
+<script>
+    const kanjiNumbers = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十"];
+
+    // 1. 決済開始
+    async function startCheckout() {
+        const res = await fetch('/api/checkout', { method: 'POST' });
+        const data = await res.json();
+        if (data.url) location.href = data.url;
+    }
+
+    // 2. 棒の選択画面（決済完了後に戻ってきたときに表示）
+    function initSelection() {
+        document.getElementById('intro-screen').classList.add('hidden');
+        document.getElementById('selection-screen').classList.remove('hidden');
+        const container = document.getElementById('stick-container');
+        for (let i = 0; i < 10; i++) {
+            const stick = document.createElement('div');
+            stick.className = 'omikuji-stick';
+            stick.textContent = `第${kanjiNumbers[i]}番`;
+            stick.onclick = fetchFortune; // 棒を選んだら結果取得
+            container.appendChild(stick);
+        }
+    }
+
+    // 3. 結果の取得と表示
+    async function fetchFortune() {
+        const params = new URLSearchParams(window.location.search);
+        const sessionId = params.get('session_id');
+
+        document.getElementById('selection-screen').classList.add('hidden');
+        document.getElementById('loading-screen').classList.remove('hidden');
+
+        const res = await fetch(`/api/get-fortune?session_id=${sessionId}`);
+        const data = await res.json();
+
+        // 表示処理
+        document.getElementById('rank-display').textContent = data.rank;
+        document.getElementById('summary-text').textContent = data.summary;
+        let html = "";
+        data.details.forEach(d => {
+            html += `<div class="detail-item"><span class="label">${d.label}</span>${d.text}</div>`;
+        });
+        document.getElementById('details-display').innerHTML = html;
+
+        // 演出
+        setTimeout(() => {
+            document.getElementById('loading-screen').classList.add('hidden');
+            document.getElementById('result-screen').classList.remove('hidden');
+            const scrollBox = document.getElementById('result-scroll-box');
+            scrollBox.classList.add('scroll-animation');
+            setTimeout(() => document.getElementById('back-button').classList.add('fade-in'), 4000);
+        }, 2000);
+    }
+
+    // URLにsession_idがある＝決済から戻ってきた場合
+    window.onload = () => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.has('session_id')) {
+            initSelection();
+        }
+    };
+</script>
+</body>
+</html>
